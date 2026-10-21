@@ -22,8 +22,8 @@ int in3 = 4;   //     -> L298N IN3 (brown)
 int in4 = 5;   //     -> L298N IN4 (black)
 
 // Ultrasonic sensor
-int trigPin = 11;
-int echoPin = 6;
+int trigPin = A5;
+int echoPin = A4;
 
 int speed = 200;        // current PWM speed (0-255)
 const int MIN_PWM = 80; // below this most motors just hum
@@ -63,9 +63,11 @@ void loop() {
     if (Serial.available() > 0) {
         handleCommand(Serial.read());
     }
-    if (followMode && millis() - lastPing >= 60) {  // ~16 Hz, lets echoes die out
+    if (millis() - lastPing >= 60) {  // ~16 Hz, lets echoes die out
         lastPing = millis();
-        followStep();
+        float d = readDistanceCm();
+        printDistance(d);
+        if (followMode) followStep(d);
     }
 }
 
@@ -117,11 +119,14 @@ float readDistanceCm() {
     return us * 0.0343 / 2.0;
 }
 
-void followStep() {
-    float d = readDistanceCm();
+// "D: <cm>" (parsed by the GUI), or "D: -1" when there's no echo
+void printDistance(float d) {
     Serial.print("D: ");
-    Serial.println(d);
+    Serial.print(d, 1);
+    Serial.println(d < 0 ? "  (no echo)" : " cm");
+}
 
+void followStep(float d) {
     if (d < 0 || d > MAX_RANGE) {  // nothing in front: don't chase
         stopCar();
         return;

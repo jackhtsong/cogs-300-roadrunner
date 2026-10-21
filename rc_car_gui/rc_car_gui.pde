@@ -173,7 +173,7 @@ void serialEvent(Serial p) {
   if (line == null) return;
   line = trim(line);
   if (line.startsWith("D: ")) {
-    distance = float(line.substring(3));
+    distance = float(split(line, ' ')[1]);  // "D: 23.4 cm" -> 23.4
     return;  // too frequent to print
   }
   if (line.equals("Mode: FOLLOW")) followMode = true;
