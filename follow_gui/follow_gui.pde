@@ -31,7 +31,8 @@ void setup() {
       port.bufferUntil('\n');
       status = "Connected: " + ports[idx];
     } catch (Exception e) {
-      status = "Failed to open " + ports[idx];
+      status = "Failed to open " + ports[idx] + " (busy? close Serial Monitor)";
+      println("Serial error: " + e.getMessage());
     }
   }
 }

@@ -39,7 +39,7 @@ const int CURVE_PCT = 50;
 // Starts in follow mode so it works with just the Serial Monitor.
 // Type T to toggle, M for manual + stop.
 bool followMode = true;
-const float SET_POINT = 20.0;   // target distance (cm)
+const float SET_POINT = 10.0;   // target distance (cm)
 const float KP        = 12.0;   // PWM per cm of error — tune this
 const float DEADBAND  = 1.5;    // within +/- this many cm, just stop
 const float MAX_RANGE = 150.0;  // beyond this treat target as lost
