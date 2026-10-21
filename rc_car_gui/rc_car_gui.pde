@@ -1,6 +1,7 @@
 // Processing GUI for the RC car.
 // Click the buttons or use arrow keys / WASD (hold to drive, release to stop).
 // Number keys 0-9 or the slider set speed.
+// F toggles autonomous follow mode (keeps ~25 cm from an object in front).
 
 import processing.serial.*;
 
@@ -8,6 +9,9 @@ Serial port;
 String status = "Not connected";
 char currentCmd = 'S';
 int speedLevel = 7;
+boolean followMode = false;  // mirrored from the Arduino's "Mode:" messages
+float distance = -1;         // latest ultrasonic reading (cm)
+boolean toggleHeld = false;  // ignore key auto-repeat on F
 
 // Set this to your Arduino's index from the printed list, or -1 to auto-pick the last port
 int PORT_INDEX = -1;
@@ -61,7 +65,15 @@ void draw() {
   textSize(13);
   fill(160);
   text(status, cx, height - 40);
-  text("Arrows/WASD drive · Q/E spin · Z/X curve · 0-9 speed · space stop", cx, height - 20);
+  text("Arrows/WASD drive · Q/E spin · Z/X curve · 0-9 speed · F follow · space stop", cx, height - 20);
+
+  // mode + distance
+  textSize(18);
+  fill(followMode ? color(80, 220, 120) : color(220));
+  text(followMode ? "FOLLOW MODE" : "MANUAL", cx, 25);
+  textSize(14);
+  fill(180);
+  text(distance < 0 ? "Distance: --" : "Distance: " + nf(distance, 0, 1) + " cm", cx, 48);
 
   // stop when mouse button released
   if (!mousePressed && !keyPressed && currentCmd != 'S') {
@@ -119,6 +131,15 @@ void keyPressed() {
     sendSpeed();
     return;
   }
+  if (key == 'f' || key == 'F') {
+    if (!toggleHeld && port != null) port.write('T');
+    toggleHeld = true;
+    return;
+  }
+  if (key == ' ' && followMode) {
+    if (port != null) port.write('M');
+    return;
+  }
   char c = 0;
   if (keyCode == UP    || key == 'w' || key == 'W') c = 'F';
   if (keyCode == DOWN  || key == 's' || key == 'S') c = 'B';
@@ -133,7 +154,8 @@ void keyPressed() {
 }
 
 void keyReleased() {
-  send('S');
+  if (key == 'f' || key == 'F') toggleHeld = false;
+  send('S');  // ignored by the Arduino while in follow mode
 }
 
 void send(char c) {
@@ -148,5 +170,13 @@ void sendSpeed() {
 void serialEvent(Serial p) {
   // optional: read Arduino debug output
   String line = p.readStringUntil('\n');
-  if (line != null) println("Arduino: " + trim(line));
+  if (line == null) return;
+  line = trim(line);
+  if (line.startsWith("D: ")) {
+    distance = float(line.substring(3));
+    return;  // too frequent to print
+  }
+  if (line.equals("Mode: FOLLOW")) followMode = true;
+  if (line.equals("Mode: MANUAL")) followMode = false;
+  println("Arduino: " + line);
 }
