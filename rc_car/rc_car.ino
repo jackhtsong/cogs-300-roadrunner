@@ -1,15 +1,14 @@
 // RC car controller (L298N, two DC motors, differential drive)
 // Receives single-character commands over Serial from the Processing GUI.
 //
-// Commands:
-//   'F' forward   'B' backward   'L' turn left   'R' turn right   'S' stop
-//   'Q' spin left 'E' spin right (wheels in opposite directions)
-//   'Z' curve left 'X' curve right (both forward, different speeds)
+// Commands (type in the Serial Monitor):
+//   'F' forward   'B' backward   'S' stop
+//   (turning commands L/R/Q/E/Z/X are commented out for now)
 //   '0'-'9'       set speed (0 = slowest usable, 9 = full)
 //   'T'           toggle autonomous follow mode on/off
 //   'M'           force manual mode + stop
 // In follow mode 'S' is ignored (the GUI sends it on every key release);
-// any drive command (F/B/L/R/Q/E/Z/X) takes back manual control.
+// F or B takes back manual control.
 
 // Motor A (left side)
 int enA = 10;  // PWM -> L298N ENA (white)
@@ -83,7 +82,7 @@ void handleCommand(char cmd) {
         return;
     }
     if (cmd == 'S' && followMode) return;
-    if (followMode && strchr("FBLRQEZX", cmd) && cmd != 0) {
+    if (followMode && strchr("FB", cmd) && cmd != 0) {
         followMode = false;
         Serial.println("Mode: MANUAL");
     }
@@ -98,12 +97,13 @@ void handleCommand(char cmd) {
     switch (cmd) {
         case 'F': drive( 1,  1); break;
         case 'B': drive(-1, -1); break;
-        case 'L': drive( 1,  0); break;  // pivot left (one wheel)
-        case 'R': drive( 0,  1); break;  // pivot right (one wheel)
-        case 'Q': drive( 1, -1); break;  // spin left in place (both wheels)
-        case 'E': drive(-1,  1); break;  // spin right in place (both wheels)
-        case 'Z': driveCurve(1, 1, 100, CURVE_PCT); break;  // curve left
-        case 'X': driveCurve(1, 1, CURVE_PCT, 100); break;  // curve right
+        // Turning disabled for now — only forward/backward.
+        // case 'L': drive( 1,  0); break;  // pivot left (one wheel)
+        // case 'R': drive( 0,  1); break;  // pivot right (one wheel)
+        // case 'Q': drive( 1, -1); break;  // spin left in place (both wheels)
+        // case 'E': drive(-1,  1); break;  // spin right in place (both wheels)
+        // case 'Z': driveCurve(1, 1, 100, CURVE_PCT); break;  // curve left
+        // case 'X': driveCurve(1, 1, CURVE_PCT, 100); break;  // curve right
         case 'S': stopCar();     break;
         default: return;                 // ignore newlines, etc.
     }
