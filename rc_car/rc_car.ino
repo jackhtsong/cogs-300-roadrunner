@@ -37,8 +37,10 @@ const int RIGHT_FLIP = 1;
 const int CURVE_PCT = 50;
 
 // Follow-me P-controller
-bool followMode = false;
-const float SET_POINT = 25.0;   // target distance (cm)
+// Starts in follow mode so it works with just the Serial Monitor.
+// Type T to toggle, M for manual + stop.
+bool followMode = true;
+const float SET_POINT = 20.0;   // target distance (cm)
 const float KP        = 12.0;   // PWM per cm of error — tune this
 const float DEADBAND  = 1.5;    // within +/- this many cm, just stop
 const float MAX_RANGE = 150.0;  // beyond this treat target as lost
@@ -57,6 +59,7 @@ void setup() {
 
     Serial.begin(9600);
     stopCar();
+    Serial.println(followMode ? "Mode: FOLLOW" : "Mode: MANUAL");
 }
 
 void loop() {
@@ -68,6 +71,7 @@ void loop() {
         float d = readDistanceCm();
         printDistance(d);
         if (followMode) followStep(d);
+        else Serial.println();
     }
 }
 
@@ -123,18 +127,20 @@ float readDistanceCm() {
 void printDistance(float d) {
     Serial.print("D: ");
     Serial.print(d, 1);
-    Serial.println(d < 0 ? "  (no echo)" : " cm");
+    Serial.print(d < 0 ? "  (no echo)" : " cm");
 }
 
 void followStep(float d) {
     if (d < 0 || d > MAX_RANGE) {  // nothing in front: don't chase
         stopCar();
+        Serial.println("  | lost target, stopped");
         return;
     }
 
     float error = d - SET_POINT;      // + = too far, drive forward
     if (abs(error) < DEADBAND) {
         stopCar();
+        Serial.println("  | at set point, stopped");
         return;
     }
 
@@ -145,6 +151,11 @@ void followStep(float d) {
     pwm = map(pwm, 0, 255, MIN_PWM, 255);
     setMotor(enA, in1, in2, LEFT_FLIP * dir, pwm);
     setMotor(enB, in3, in4, RIGHT_FLIP * dir, pwm);
+
+    Serial.print("  | err ");
+    Serial.print(error, 1);
+    Serial.print(dir > 0 ? "  FWD pwm " : "  BACK pwm ");
+    Serial.println(pwm);
 }
 
 // dir: 1 = forward, -1 = backward, 0 = stop
