@@ -20,9 +20,13 @@ int enB = 9;   // PWM -> L298N ENB (red)
 int in3 = 4;   //     -> L298N IN3 (brown)
 int in4 = 5;   //     -> L298N IN4 (black)
 
-// Ultrasonic sensor
+// Front ultrasonic sensor
 int trigPin = A5;
 int echoPin = A4;
+
+// Rear ultrasonic sensor
+int rearTrigPin = A2;
+int rearEchoPin = A3;
 
 int speed = 200;        // current PWM speed (0-255)
 const int MIN_PWM = 80; // below this most motors just hum
@@ -43,6 +47,9 @@ const float SET_POINT = 10.0;   // target distance (cm)
 const float KP        = 12.0;   // PWM per cm of error — tune this
 const float DEADBAND  = 1.5;    // within +/- this many cm, just stop
 const float MAX_RANGE = 150.0;  // beyond this treat target as lost
+// Something within this distance of the REAR sensor pushes the car forward
+// (until the front sensor reaches SET_POINT, then it stops).
+const float REAR_TRIGGER = 10.0;
 unsigned long lastPing = 0;
 
 void setup() {
@@ -55,6 +62,8 @@ void setup() {
 
     pinMode(trigPin, OUTPUT);
     pinMode(echoPin, INPUT);
+    pinMode(rearTrigPin, OUTPUT);
+    pinMode(rearEchoPin, INPUT);
 
     Serial.begin(9600);
     stopCar();
@@ -67,9 +76,13 @@ void loop() {
     }
     if (millis() - lastPing >= 60) {  // ~16 Hz, lets echoes die out
         lastPing = millis();
-        float d = readDistanceCm();
+        float d = readDistanceCm(trigPin, echoPin);
+        delay(5);  // let the front echo die out before pinging the rear
+        float rear = readDistanceCm(rearTrigPin, rearEchoPin);
         printDistance(d);
-        if (followMode) followStep(d);
+        Serial.print("  R: ");
+        Serial.print(rear, 1);
+        if (followMode) followStep(d, rear);
         else Serial.println();
     }
 }
@@ -112,13 +125,13 @@ void handleCommand(char cmd) {
 }
 
 // Returns distance in cm, or -1 if no echo.
-float readDistanceCm() {
-    digitalWrite(trigPin, LOW);
+float readDistanceCm(int trig, int echo) {
+    digitalWrite(trig, LOW);
     delayMicroseconds(2);
-    digitalWrite(trigPin, HIGH);
+    digitalWrite(trig, HIGH);
     delayMicroseconds(10);
-    digitalWrite(trigPin, LOW);
-    unsigned long us = pulseIn(echoPin, HIGH, 30000);  // ~5 m timeout
+    digitalWrite(trig, LOW);
+    unsigned long us = pulseIn(echo, HIGH, 30000);  // ~5 m timeout
     if (us == 0) return -1;
     return us * 0.0343 / 2.0;
 }
@@ -130,7 +143,25 @@ void printDistance(float d) {
     Serial.print(d < 0 ? "  (no echo)" : " cm");
 }
 
-void followStep(float d) {
+void followStep(float d, float rear) {
+    // Rear sensor has priority: something close behind -> move forward,
+    // unless the front is already too close, then stop.
+    if (rear > 0 && rear < REAR_TRIGGER) {
+        if (d > 0 && d <= SET_POINT) {
+            stopCar();
+            Serial.println("  | rear close, front too close -> stopped");
+            return;
+        }
+        float output = KP * (REAR_TRIGGER - rear);  // closer behind = faster
+        int pwm = constrain((int)output, 0, 255);
+        pwm = map(pwm, 0, 255, MIN_PWM, 255);
+        setMotor(enA, in1, in2, LEFT_FLIP, pwm);
+        setMotor(enB, in3, in4, RIGHT_FLIP, pwm);
+        Serial.print("  | rear close -> FWD pwm ");
+        Serial.println(pwm);
+        return;
+    }
+
     if (d < 0 || d > MAX_RANGE) {  // nothing in front: don't chase
         stopCar();
         Serial.println("  | lost target, stopped");
